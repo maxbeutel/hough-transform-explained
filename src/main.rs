@@ -33,63 +33,20 @@ fn hough_transform() {
 
             // we found an edge, now try to draw lines going through this point, using
             // the current point as the origin 0,0
-
             for i in 0..3 {
                 let theta = (i as f32 + 1.0) * 30.0;
                 //println!("at {}/{} angle {}", x, y_flipped, theta);
 
-                // -- start visualization of the angle, NOT hough transform related --
-                // calculate remaining angle in the triangle (alpha is "angle", beta is 90)
-                let angle_beta = 90f32;
-                //let angle_gamma = 180f32 - (theta + angle_beta);
-
-                // one side of the triangle is know, it's a, opposite of angle alpha, so the "height" of the triangle
-                let length_a = x as f32;
-
-                // now use sinus rule to find the remaining sides
-                // don't forget to convert to radians before using trigonometry functions
-                let length_b = length_a * angle_beta.to_radians().sin() / theta.to_radians().sin();
-                //let length_c = length_b * angle_gamma.to_radians().sin() / angle_beta.to_radians().sin();
-
-                // println!("length_b {}", length_b);
-                // println!("length_c {}", length_c);
-
-                // now calculate end of line, with length b of the triangle we just used
-                // p1_x/p2_y is the origin so at 0/0
-                let p2_x_relative = 0f32 + length_b * theta.to_radians().cos();
-                let p2_y_relative = 0f32 + length_b * theta.to_radians().sin();
-
-                //println!("(relative) from {}/{} to {}/{}", x, y_flipped, p2_x_relative, p2_y_relative);
-
-                let p2_x = (p2_y_relative - x as f32).round();
-                let p2_y = (p2_x_relative + y_flipped as f32).round();
-
-                //println!("(absolute) from {}/{} to {}/{}", x, y_flipped, p2_x, p2_y);
-
-                // clip the line to fit our image canvas
-                let mut clipped_x1 = 0.0;
-                let mut clipped_y1 = 0.0;
-                let mut clipped_x2 = 0.0;
-                let mut clipped_y2 = 0.0;
-
-                liang_barsky(
-                    0.0, img_width as f32 - 1.0, 0.0, img_height as f32 - 1.0,
-                    x as f32, y_flipped as f32, p2_x as f32, p2_y as f32,
-                    &mut clipped_x1, &mut clipped_y1, &mut clipped_x2, &mut clipped_y2
-                );
-
-                //println!("(clipped) from {}/{} to {}/{}", clipped_x1.round(), clipped_y1.round(), clipped_x2.round(), clipped_y2.round());
-
-                draw_line(
+                // show in a separate image how the lines are drawn around the current x/y point
+                // in a counter-clockwise fashion. The lines will intersect at 60 deg for all data points
+                // this is NOT related to the transformation and only serves an illustrative purpose
+                visualize_angle(
                     &mut angle_visualization_img,
-                    clipped_x1.round() as i32,
-                    img_height as i32 - clipped_y1.round() as i32,
-                    clipped_x2.round() as i32,
-                    img_height as i32 - clipped_y2.round() as i32,
+                    theta,
+                    x, y_flipped,
+                    img_width, img_height,
                     image::Rgb([255, 255, 255])
-                    //(255, 255, 255)
                 );
-                // -- end visualization of the angle --
 
                 // this is the HOUGH TRANSFROM:
                 // calculate rho
@@ -183,9 +140,68 @@ fn hough_transform() {
 
 // -- utility functions --
 
+fn visualize_angle<T: GenericImage>(
+    angle_visualization_img: &mut T,
+    theta: f32,
+    x: u32,
+    y: u32,
+    img_width: u32,
+    img_height: u32,
+    pixel: T::Pixel
+) {
+    // calculate remaining angle in the triangle (alpha is "angle", beta is 90)
+    let angle_beta = 90f32;
+    //let angle_gamma = 180f32 - (theta + angle_beta);
+
+    // one side of the triangle is know, it's a, opposite of angle alpha, so the "height" of the triangle
+    let length_a = x as f32;
+
+    // now use sinus rule to find the remaining sides
+    // don't forget to convert to radians before using trigonometry functions
+    let length_b = length_a * angle_beta.to_radians().sin() / theta.to_radians().sin();
+    //let length_c = length_b * angle_gamma.to_radians().sin() / angle_beta.to_radians().sin();
+
+    // println!("length_b {}", length_b);
+    // println!("length_c {}", length_c);
+
+    // now calculate end of line, with length b of the triangle we just used
+    // p1_x/p2_y is the origin so at 0/0
+    let p2_x_relative = 0f32 + length_b * theta.to_radians().cos();
+    let p2_y_relative = 0f32 + length_b * theta.to_radians().sin();
+
+    //println!("(relative) from {}/{} to {}/{}", x, y, p2_x_relative, p2_y_relative);
+
+    let p2_x = (p2_y_relative - x as f32).round();
+    let p2_y = (p2_x_relative + y as f32).round();
+
+    //println!("(absolute) from {}/{} to {}/{}", x, y, p2_x, p2_y);
+
+    // clip the line to fit our image canvas
+    let mut clipped_x1 = 0.0;
+    let mut clipped_y1 = 0.0;
+    let mut clipped_x2 = 0.0;
+    let mut clipped_y2 = 0.0;
+
+    liang_barsky(
+        0.0, img_width as f32 - 1.0, 0.0, img_height as f32 - 1.0,
+        x as f32, y as f32, p2_x as f32, p2_y as f32,
+        &mut clipped_x1, &mut clipped_y1, &mut clipped_x2, &mut clipped_y2
+    );
+
+    //println!("(clipped) from {}/{} to {}/{}", clipped_x1.round(), clipped_y1.round(), clipped_x2.round(), clipped_y2.round());
+
+    draw_line(
+        angle_visualization_img,
+        clipped_x1.round() as i32,
+        img_height as i32 - clipped_y1.round() as i32,
+        clipped_x2.round() as i32,
+        img_height as i32 - clipped_y2.round() as i32,
+        pixel
+    );
+}
+
 // Based on http://stackoverflow.com/questions/34440429/draw-a-line-in-a-bitmap-possibly-with-piston
 fn draw_line<T: GenericImage>(img: &mut T, x0: i32, y0: i32, x1: i32, y1: i32, pixel: T::Pixel) {
-
     // Create local variables for moving start point
     let mut x0 = x0;
     let mut y0 = y0;
